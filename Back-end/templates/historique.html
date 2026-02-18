@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historique - DataCleaner API</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
+        .navbar { box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+        .card { border-radius: 15px; border: none; overflow: hidden; }
+        .table thead { background-color: #f8f9fa; }
+        .badge-actions { background-color: #e1f5fe; color: #0288d1; border: 1px solid #b3e5fc; font-size: 0.8rem; }
+        .row-hover:hover { background-color: #fdfdfd; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-cpu-fill me-2"></i>DataCleaner API
+            </a>
+            <div class="navbar-nav ms-auto align-items-center">
+                <a class="nav-link text-white-50" href="/">Accueil</a>
+                <a class="nav-link text-white" href="/app">Outil</a>
+                <a class="nav-link active fw-bold me-3" href="/historique">Historique</a>
+                
+                <a href="/logout" class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm">
+                    <i class="bi bi-box-arrow-right me-1"></i> Quitter
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-dark mb-0">Historique des fichiers</h2>
+                <p class="text-muted">Consultez et gérez vos anciens rapports de nettoyage</p>
+            </div>
+            <a href="/app" class="btn btn-primary shadow-sm px-4">
+                <i class="bi bi-plus-circle me-2"></i>Nouveau traitement
+            </a>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4 py-3">Fichier & Date</th>
+                            <th>Actions effectuées</th>
+                            <th>Lignes (Avant <i class="bi bi-arrow-right"></i> Après)</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in historique %}
+                        <tr id="row-{{ item.id }}" class="row-hover">
+                            <td class="ps-4">
+                                <div class="d-flex flex-column">
+                                    <span class="fw-bold text-dark">{{ item.nom_fichier }}</span>
+                                    <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ item.date_traitement }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-actions">{{ item.actions }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary opacity-75">{{ item.lignes_avant }}</span>
+                                <i class="bi bi-chevron-right mx-1 text-primary small"></i>
+                                <span class="badge bg-success">{{ item.lignes_apres }}</span>
+                            </td>
+                            <td class="text-center">
+                                <button onclick="deleteEntry('{{ item.id }}')" class="btn btn-link text-danger p-0">
+                                    <i class="bi bi-trash3-fill h5 mb-0"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <i class="bi bi-folder2-open display-4 text-muted d-block mb-3"></i>
+                                <p class="text-muted fw-bold">Aucun historique trouvé.</p>
+                                <a href="/app" class="btn btn-sm btn-outline-primary">Commencer maintenant</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

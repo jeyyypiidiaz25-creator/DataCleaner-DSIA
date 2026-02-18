@@ -1,0 +1,20 @@
+/* Animation simple pour le survol de la carte */
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* Style pour les messages d'erreur ou succès */
+#statusMessage {
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+/* Personnalisation du tableau de données */
+.table {
+    font-size: 0.85rem;
+}
