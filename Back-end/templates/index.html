@@ -11,6 +11,7 @@
     <style>
         .preview-scroll { max-height: 400px; overflow-y: auto; }
         .table-sm { font-size: 0.85rem; }
+        .upload-area:hover { background-color: #f8f9fa; transition: 0.3s; }
     </style>
 </head>
 <body class="bg-light">
@@ -33,7 +34,7 @@
         <div class="row g-4">
             
             <div class="col-lg-4">
-                <div class="card border-0 shadow-sm rounded-4">
+                <div class="card border-0 shadow-sm rounded-4 animate__animated animate__fadeInLeft">
                     <div class="card-body p-4">
                         <h5 class="fw-bold mb-4 text-dark">Configuration</h5>
                         
@@ -45,7 +46,7 @@
                             </div>
 
                             <div class="mb-4">
-                                <label class="form-label d-block fw-semibold mb-3">Traitements à appliquer :</label>
+                                <label class="form-label d-block fw-semibold mb-3 border-bottom pb-2">Paramètres :</label>
                                 <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" id="duplicates" checked>
                                     <label class="form-check-label" for="duplicates">Supprimer les doublons</label>
@@ -56,7 +57,7 @@
                                 </div>
                                 <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" id="outliers">
-                                    <label class="form-check-label" for="outliers">Filtrer les valeurs aberrantes</label>
+                                    <label class="form-check-label" for="outliers">Filtrer les outliers (IQR)</label>
                                 </div>
                                 <div class="form-check form-switch mb-3">
                                     <input class="form-check-input" type="checkbox" id="normalize">
@@ -65,7 +66,7 @@
                             </div>
 
                             <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow" id="btnSubmit">
-                                <i class="bi bi-gear-wide-connected me-2"></i>Analyser & Nettoyer
+                                <i class="bi bi-gear-wide-connected me-2"></i>Lancer le nettoyage
                             </button>
                         </form>
                     </div>
@@ -73,18 +74,18 @@
             </div>
 
             <div class="col-lg-8">
-                <div id="welcomeMessage" class="text-center py-5 bg-white rounded-4 shadow-sm border">
+                <div id="welcomeMessage" class="text-center py-5 bg-white rounded-4 shadow-sm border animate__animated animate__fadeIn">
                     <i class="bi bi-file-earmark-spreadsheet display-1 text-light"></i>
-                    <h4 class="mt-3 text-muted">Prêt pour l'analyse</h4>
-                    <p class="text-muted small">Importez un fichier pour voir les statistiques et l'aperçu ici.</p>
+                    <h4 class="mt-3 text-muted fw-bold">Analyse prête</h4>
+                    <p class="text-muted small">Importez votre fichier pour générer l'aperçu et les statistiques.</p>
                 </div>
 
                 <div id="resultBox" class="d-none animate__animated animate__fadeIn">
                     
-                    <div id="stats"></div>
+                    <div id="stats" class="mb-4"></div>
 
                     <div id="previewBox" class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
-                        <div class="card-header bg-white py-3">
+                        <div class="card-header bg-white py-3 border-0">
                             <h6 class="m-0 fw-bold text-primary">
                                 <i class="bi bi-table me-2"></i>Aperçu des 10 premières lignes nettoyées
                             </h6>
@@ -102,7 +103,7 @@
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
-                                <h6 class="text-center text-muted small fw-bold">VOLUME : AVANT vs APRÈS</h6>
+                                <h6 class="text-center text-muted small fw-bold mb-3 uppercase">Volume : Avant vs Après</h6>
                                 <div style="height: 250px;">
                                     <canvas id="statsChart"></canvas>
                                 </div>
@@ -110,7 +111,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
-                                <h6 class="text-center text-muted small fw-bold">RÉPARTITION DU NETTOYAGE</h6>
+                                <h6 class="text-center text-muted small fw-bold mb-3 uppercase">Répartition des corrections</h6>
                                 <div style="height: 250px;">
                                     <canvas id="detailsChart"></canvas>
                                 </div>
