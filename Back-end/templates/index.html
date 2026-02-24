@@ -9,9 +9,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        .preview-scroll { max-height: 400px; overflow-y: auto; }
+        .preview-scroll { max-height: 350px; overflow-y: auto; }
         .table-sm { font-size: 0.85rem; }
-        .upload-area:hover { background-color: #f8f9fa; transition: 0.3s; }
+        .upload-zone-active { 
+            border: 2px dashed #0d6efd; 
+            background-color: #f8f9fa; 
+            transition: all 0.3s ease; 
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -34,19 +38,15 @@
         <div class="row g-4">
             
             <div class="col-lg-4">
-                <div class="card border-0 shadow-sm rounded-4 animate__animated animate__fadeInLeft">
+                <div class="card border-0 shadow-sm rounded-4">
                     <div class="card-body p-4">
-                        <h5 class="fw-bold mb-4 text-dark">Configuration</h5>
+                        <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-sliders me-2"></i>Paramètres</h5>
                         
                         <form id="processForm">
-                            <div class="upload-area p-4 border border-2 border-dashed rounded-4 text-center mb-4" id="uploadIconClick" style="cursor: pointer; border-style: dashed !important;">
-                                <input type="file" id="dataFile" class="d-none" accept=".csv, .xlsx, .xls, .json, .xml">
-                                <i class="bi bi-cloud-arrow-up display-4 text-primary"></i>
-                                <p class="mt-2 small text-muted mb-0" id="fileNameDisplay">Cliquez pour choisir un fichier</p>
-                            </div>
+                            <input type="file" id="dataFile" class="d-none">
 
                             <div class="mb-4">
-                                <label class="form-label d-block fw-semibold mb-3 border-bottom pb-2">Paramètres :</label>
+                                <label class="form-label d-block fw-semibold mb-3 border-bottom pb-2">Actions de nettoyage :</label>
                                 <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" id="duplicates" checked>
                                     <label class="form-check-label" for="duplicates">Supprimer les doublons</label>
@@ -66,7 +66,7 @@
                             </div>
 
                             <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow" id="btnSubmit">
-                                <i class="bi bi-gear-wide-connected me-2"></i>Lancer le nettoyage
+                                <i class="bi bi-lightning-charge-fill me-2"></i>Lancer le traitement
                             </button>
                         </form>
                     </div>
@@ -74,52 +74,66 @@
             </div>
 
             <div class="col-lg-8">
-                <div id="welcomeMessage" class="text-center py-5 bg-white rounded-4 shadow-sm border animate__animated animate__fadeIn">
-                    <i class="bi bi-file-earmark-spreadsheet display-1 text-light"></i>
-                    <h4 class="mt-3 text-muted fw-bold">Analyse prête</h4>
-                    <p class="text-muted small">Importez votre fichier pour générer l'aperçu et les statistiques.</p>
-                </div>
-
-                <div id="resultBox" class="d-none animate__animated animate__fadeIn">
+                <div class="card border-0 shadow-sm p-4 h-100 rounded-4">
                     
-                    <div id="stats" class="mb-4"></div>
+                    <div id="importZone" class="text-center py-5 my-auto animate__animated animate__fadeIn">
+                        <i class="bi bi-file-earmark-arrow-up display-1 text-primary opacity-25"></i>
+                        <h4 class="fw-bold mt-3">Importer vos données</h4>
+                        <p class="text-muted mb-4">Choisissez le format puis sélectionnez votre fichier</p>
+                        
+                        <div class="d-flex flex-column align-items-center gap-3">
+                            <div class="mb-3 w-50">
+                                <label class="form-label small fw-bold text-uppercase text-muted">Format attendu</label>
+                                <select class="form-select shadow-sm" id="formatSelector">
+                                    <option value=".csv">CSV (.csv)</option>
+                                    <option value=".xlsx,.xls">Excel (.xlsx, .xls)</option>
+                                    <option value=".json">JSON (.json)</option>
+                                    <option value=".xml">XML (.xml)</option>
+                                </select>
+                            </div>
 
-                    <div id="previewBox" class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
-                        <div class="card-header bg-white py-3 border-0">
-                            <h6 class="m-0 fw-bold text-primary">
-                                <i class="bi bi-table me-2"></i>Aperçu des 10 premières lignes nettoyées
-                            </h6>
+                            <button type="button" class="btn btn-outline-primary btn-lg px-5 rounded-pill fw-bold" onclick="document.getElementById('dataFile').click()">
+                                <i class="bi bi-folder2-open me-2"></i>Parcourir les fichiers
+                            </button>
+                            <p id="mainFileNameDisplay" class="mt-2 fw-bold text-primary animate__animated animate__pulse animate__infinite"></p>
                         </div>
-                        <div class="card-body p-0">
+                    </div>
+
+                    <div id="resultBox" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold m-0 text-success"><i class="bi bi-check-all me-2"></i>Analyse terminée</h5>
+                            <button onclick="window.location.reload()" class="btn btn-sm btn-outline-secondary rounded-pill">Nouveau fichier</button>
+                        </div>
+
+                        <div id="stats" class="mb-4"></div>
+
+                        <div class="card border-0 bg-light mb-4 overflow-hidden">
+                            <div class="card-header bg-white py-2 border-0">
+                                <span class="small fw-bold text-muted text-uppercase">Aperçu (10 premières lignes)</span>
+                            </div>
                             <div class="table-responsive preview-scroll">
-                                <table class="table table-sm table-hover align-middle mb-0">
-                                    <thead class="table-light text-uppercase small" id="previewThead"></thead>
-                                    <tbody id="previewTbody" class="small"></tbody>
+                                <table class="table table-sm table-hover mb-0 bg-white">
+                                    <thead class="table-light sticky-top" id="previewThead"></thead>
+                                    <tbody id="previewTbody"></tbody>
                                 </table>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
-                                <h6 class="text-center text-muted small fw-bold mb-3 uppercase">Volume : Avant vs Après</h6>
-                                <div style="height: 250px;">
-                                    <canvas id="statsChart"></canvas>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="bg-white p-2 border rounded shadow-sm">
+                                    <canvas id="statsChart" style="height: 200px;"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="bg-white p-2 border rounded shadow-sm">
+                                    <canvas id="detailsChart" style="height: 200px;"></canvas>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
-                                <h6 class="text-center text-muted small fw-bold mb-3 uppercase">Répartition des corrections</h6>
-                                <div style="height: 250px;">
-                                    <canvas id="detailsChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                </div> </div>
+                    </div> </div>
+            </div>
+
         </div>
     </div>
 

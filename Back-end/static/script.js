@@ -1,45 +1,49 @@
 /**
- * DataCleaner API - Logique Client
+ * DataCleaner API - Logique JavaScript Finale
  */
 
-// 1. GESTION DE L'INTERFACE D'UPLOAD
-const uploadArea = document.getElementById('uploadIconClick');
+// --- ELEMENTS UI ---
+const formatSelector = document.getElementById('formatSelector');
 const fileInput = document.getElementById('dataFile');
-const fileNameDisplay = document.getElementById('fileNameDisplay');
+const mainFileNameDisplay = document.getElementById('mainFileNameDisplay');
+const sidebarFileNameDisplay = document.getElementById('fileNameDisplay');
+const processForm = document.getElementById('processForm');
+const btnSubmit = document.getElementById('btnSubmit');
 
-// Déclenche le sélecteur de fichier au clic sur l'icône
-if (uploadArea) {
-    uploadArea.addEventListener('click', () => fileInput.click());
+let statsChart = null;
+let detailsChart = null;
+
+// 1. GESTION DU FORMAT ET DE LA SÉLECTION DE FICHIER
+if (formatSelector) {
+    formatSelector.addEventListener('change', (e) => {
+        // Met à jour l'attribut 'accept' pour filtrer dans l'explorateur de fichiers
+        fileInput.accept = e.target.value;
+    });
 }
 
-// Affiche le nom du fichier sélectionné
 if (fileInput) {
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            fileNameDisplay.innerText = e.target.files[0].name;
-            fileNameDisplay.classList.add('text-primary', 'fw-bold');
+            const fileName = e.target.files[0].name;
+            // Affiche le nom du fichier dans la zone centrale et la sidebar
+            if (mainFileNameDisplay) mainFileNameDisplay.innerText = "Fichier prêt : " + fileName;
+            if (sidebarFileNameDisplay) sidebarFileNameDisplay.innerText = fileName;
         }
     });
 }
 
-// 2. TRAITEMENT DU FORMULAIRE (ENVOI À FLASK)
-const processForm = document.getElementById('processForm');
-let statsChart = null;
-let detailsChart = null;
-
+// 2. ENVOI ET TRAITEMENT (AJAX)
 if (processForm) {
     processForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const btnSubmit = document.getElementById('btnSubmit');
         const file = fileInput.files[0];
-        
         if (!file) {
-            alert("Erreur : Veuillez d'abord sélectionner un fichier.");
+            alert("Veuillez d'abord importer un fichier dans la zone centrale.");
             return;
         }
 
-        // Création du FormData pour envoyer le fichier et les options
+        // Préparation des données
         const formData = new FormData();
         formData.append('file', file);
         formData.append('missing', document.getElementById('missing').checked);
@@ -47,9 +51,9 @@ if (processForm) {
         formData.append('duplicates', document.getElementById('duplicates').checked);
         formData.append('normalize', document.getElementById('normalize').checked);
 
-        // UI : Désactiver le bouton et montrer le chargement
+        // UI : État de chargement
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Traitement...';
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Nettoyage en cours...';
 
         fetch('/process', {
             method: 'POST',
@@ -58,65 +62,68 @@ if (processForm) {
         .then(response => response.json())
         .then(data => {
             btnSubmit.disabled = false;
-            btnSubmit.innerHTML = '<i class="bi bi-gear-wide-connected me-2"></i>Lancer le nettoyage';
+            btnSubmit.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>Lancer le traitement';
 
             if (data.error) {
-                alert("Erreur serveur : " + data.error);
+                alert("Erreur : " + data.error);
                 return;
             }
 
-            // A. Masquer le message de bienvenue et afficher les résultats
-            document.getElementById('welcomeMessage').classList.add('d-none');
+            // Basculer l'affichage (Masquer import, montrer résultats)
+            document.getElementById('importZone').classList.add('d-none');
             document.getElementById('resultBox').classList.remove('d-none');
 
-            // B. Afficher l'alerte de succès et le lien de téléchargement
+            // Mise à jour de l'alerte de statistiques
             const statsDiv = document.getElementById('stats');
             statsDiv.innerHTML = `
                 <div class="alert alert-success d-flex justify-content-between align-items-center shadow-sm animate__animated animate__fadeIn">
                     <span>
                         <i class="bi bi-check-circle-fill me-2"></i>
-                        Nettoyage terminé : <strong>${data.rows_after}</strong> lignes conservées (initialement ${data.rows_before}).
+                        <strong>${data.rows_after}</strong> lignes traitées avec succès.
                     </span>
-                    <a href="${data.download_url}" class="btn btn-success btn-sm px-3 rounded-pill shadow-sm">
+                    <a href="${data.download_url}" class="btn btn-success btn-sm px-4 rounded-pill">
                         <i class="bi bi-download me-1"></i>Télécharger CSV
                     </a>
                 </div>
             `;
 
-            // C. Remplir le tableau de visualisation (Aperçu)
-            const thead = document.getElementById('previewThead');
-            const tbody = document.getElementById('previewTbody');
+            // Remplissage du tableau d'aperçu
+            updatePreviewTable(data);
 
-            // En-têtes (Colonnes)
-            thead.innerHTML = '<tr>' + data.columns.map(col => `<th>${col}</th>`).join('') + '</tr>';
-            
-            // Lignes (Données)
-            tbody.innerHTML = data.preview.map(row => {
-                return '<tr>' + data.columns.map(col => {
-                    const cellValue = row[col];
-                    return `<td>${cellValue !== null ? cellValue : '<span class="text-danger">null</span>'}</td>`;
-                }).join('') + '</tr>';
-            }).join('');
-
-            // D. Générer les graphiques
+            // Mise à jour des graphiques
             updateCharts(data);
         })
         .catch(error => {
-            console.error('Erreur Fetch:', error);
+            console.error('Erreur:', error);
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = 'Réessayer';
-            alert("Une erreur est survenue lors de la communication avec l'API.");
         });
     });
 }
 
-// 3. FONCTION DES GRAPHIQUES (CHART.JS)
+// 3. FONCTION DE REMPLISSAGE DU TABLEAU
+function updatePreviewTable(data) {
+    const thead = document.getElementById('previewThead');
+    const tbody = document.getElementById('previewTbody');
+
+    // Génération des en-têtes
+    thead.innerHTML = '<tr>' + data.columns.map(c => `<th>${c}</th>`).join('') + '</tr>';
+    
+    // Génération des lignes (limité aux 10 premières transmises par le serveur)
+    tbody.innerHTML = data.preview.map(row => {
+        return '<tr>' + data.columns.map(c => {
+            const val = row[c];
+            return `<td>${val !== null ? val : '<span class="text-muted small">null</span>'}</td>`;
+        }).join('') + '</tr>';
+    }).join('');
+}
+
+// 4. FONCTION DES GRAPHIQUES (CHART.JS)
 function updateCharts(data) {
-    // Supprimer les anciens graphiques pour éviter les bugs au survol (hover)
     if (statsChart) statsChart.destroy();
     if (detailsChart) detailsChart.destroy();
 
-    // Graphique : Avant vs Après (Barres)
+    // Graphique Barres (Volume)
     const ctxBar = document.getElementById('statsChart').getContext('2d');
     statsChart = new Chart(ctxBar, {
         type: 'bar',
@@ -125,21 +132,14 @@ function updateCharts(data) {
             datasets: [{
                 label: 'Nombre de lignes',
                 data: [data.rows_before, data.rows_after],
-                backgroundColor: ['#e9ecef', '#0d6efd'],
-                borderColor: ['#ced4da', '#0a58ca'],
-                borderWidth: 1,
-                borderRadius: 8
+                backgroundColor: ['#6c757d', '#0d6efd'],
+                borderRadius: 5
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
-        }
+        options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // Graphique : Répartition des corrections (Doughnut)
+    // Graphique Doughnut (Détails)
     const ctxDoughnut = document.getElementById('detailsChart').getContext('2d');
     detailsChart = new Chart(ctxDoughnut, {
         type: 'doughnut',
@@ -147,33 +147,20 @@ function updateCharts(data) {
             labels: ['Doublons', 'V. Manquantes', 'Outliers'],
             datasets: [{
                 data: [data.details.doublons, data.details.manquants, data.details.aberrantes],
-                backgroundColor: ['#ffc107', '#dc3545', '#17a2b8'],
-                hoverOffset: 10
+                backgroundColor: ['#ffc107', '#dc3545', '#17a2b8']
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 15, padding: 20 } }
-            }
-        }
+        options: { responsive: true, maintainAspectRatio: false }
     });
 }
 
-// 4. SUPPRESSION DEPUIS L'HISTORIQUE
+// 5. GESTION DE LA SUPPRESSION DANS L'HISTORIQUE
 function deleteEntry(id) {
-    if (confirm("Supprimer définitivement ce traitement de l'historique ?")) {
+    if (confirm("Supprimer cette analyse de l'historique ?")) {
         fetch(`/delete/${id}`, { method: 'DELETE' })
         .then(res => res.json())
         .then(data => {
-            if (data.success) {
-                // Recharge la page historique pour mettre à jour la liste
-                location.reload();
-            } else {
-                alert("Erreur lors de la suppression.");
-            }
-        })
-        .catch(err => console.error(err));
+            if (data.success) location.reload();
+        });
     }
 }
