@@ -6,7 +6,12 @@
     <title>Outil de Nettoyage - DataCleaner API</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .preview-scroll { max-height: 400px; overflow-y: auto; }
+        .table-sm { font-size: 0.85rem; }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -19,10 +24,7 @@
                 <a class="nav-link text-white-50 d-none d-sm-block" href="/">Accueil</a>
                 <a class="nav-link active fw-bold" href="/app">Outil</a>
                 <a class="nav-link text-white" href="/historique">Historique</a>
-                
-                <a href="/logout" class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm">
-                    <i class="bi bi-box-arrow-right me-1"></i> Quitter
-                </a>
+                <a href="/logout" class="btn btn-outline-light btn-sm ms-2">Déconnexion</a>
             </div>
         </div>
     </nav>
@@ -31,100 +33,92 @@
         <div class="row g-4">
             
             <div class="col-lg-4">
-                <div class="card border-0 shadow-sm p-4 sticky-top" style="top: 20px; border-radius: 15px;">
-                    <h5 class="fw-bold mb-4 text-dark">
-                        <i class="bi bi-sliders me-2 text-primary"></i>Paramètres
-                    </h5>
-                    
-                    <form id="processForm">
-                        <div class="mb-4 text-center">
-                            <label class="form-label d-block text-muted small fw-bold text-uppercase">Fichier Source</label>
-                            
-                            <input type="file" id="dataFile" name="file" class="d-none" accept=".csv,.xlsx,.xls,.json,.xml">
-                            
-                            <div id="uploadIconClick" class="border border-2 border-dashed p-4 rounded-3 bg-light hover-shadow" style="cursor: pointer; transition: all 0.3s ease;">
-                                <i class="bi bi-cloud-arrow-up-fill display-5 text-primary"></i>
-                                <p class="small mt-2 mb-0 fw-bold text-truncate px-2" id="fileNameDisplay">
-                                    Cliquer pour importer
-                                </p>
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold mb-4 text-dark">Configuration</h5>
+                        
+                        <form id="processForm">
+                            <div class="upload-area p-4 border border-2 border-dashed rounded-4 text-center mb-4" id="uploadIconClick" style="cursor: pointer; border-style: dashed !important;">
+                                <input type="file" id="dataFile" class="d-none" accept=".csv, .xlsx, .xls, .json, .xml">
+                                <i class="bi bi-cloud-arrow-up display-4 text-primary"></i>
+                                <p class="mt-2 small text-muted mb-0" id="fileNameDisplay">Cliquez pour choisir un fichier</p>
                             </div>
-                        </div>
 
-                        <div class="bg-light p-3 rounded-3 mb-4 shadow-sm">
-                            <label class="form-label d-block text-muted small fw-bold mb-3 text-uppercase">Nettoyage à appliquer</label>
-                            <div class="form-check form-switch mb-2">
-                                <input class="form-check-input" type="checkbox" id="duplicates" checked>
-                                <label class="form-check-label" for="duplicates">Doublons</label>
+                            <div class="mb-4">
+                                <label class="form-label d-block fw-semibold mb-3">Traitements à appliquer :</label>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="duplicates" checked>
+                                    <label class="form-check-label" for="duplicates">Supprimer les doublons</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="missing" checked>
+                                    <label class="form-check-label" for="missing">Imputer les valeurs manquantes</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="outliers">
+                                    <label class="form-check-label" for="outliers">Filtrer les valeurs aberrantes</label>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="normalize">
+                                    <label class="form-check-label" for="normalize">Normalisation (0 - 1)</label>
+                                </div>
                             </div>
-                            <div class="form-check form-switch mb-2">
-                                <input class="form-check-input" type="checkbox" id="missing" checked>
-                                <label class="form-check-label" for="missing">Valeurs vides</label>
-                            </div>
-                            <div class="form-check form-switch mb-2">
-                                <input class="form-check-input" type="checkbox" id="outliers">
-                                <label class="form-check-label" for="outliers">Valeurs aberrantes</label>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="normalize">
-                                <label class="form-check-label" for="normalize">Normalisation (0-1)</label>
-                            </div>
-                        </div>
 
-                        <button type="submit" id="btnSubmit" class="btn btn-primary w-100 py-2 fw-bold shadow">
-                            <i class="bi bi-lightning-charge-fill me-1"></i> Analyser & Nettoyer
-                        </button>
-                    </form>
+                            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow" id="btnSubmit">
+                                <i class="bi bi-gear-wide-connected me-2"></i>Analyser & Nettoyer
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
             <div class="col-lg-8">
-                <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 15px; min-height: 550px;">
+                <div id="welcomeMessage" class="text-center py-5 bg-white rounded-4 shadow-sm border">
+                    <i class="bi bi-file-earmark-spreadsheet display-1 text-light"></i>
+                    <h4 class="mt-3 text-muted">Prêt pour l'analyse</h4>
+                    <p class="text-muted small">Importez un fichier pour voir les statistiques et l'aperçu ici.</p>
+                </div>
+
+                <div id="resultBox" class="d-none animate__animated animate__fadeIn">
                     
-                    <div id="welcomeMessage" class="text-center py-5 my-auto">
-                        <div class="mb-4">
-                            <i class="bi bi-clipboard2-data display-1 text-light"></i>
+                    <div id="stats"></div>
+
+                    <div id="previewBox" class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="m-0 fw-bold text-primary">
+                                <i class="bi bi-table me-2"></i>Aperçu des 10 premières lignes nettoyées
+                            </h6>
                         </div>
-                        <h4 class="text-muted fw-bold">Analyse prête</h4>
-                        <p class="text-muted mx-auto" style="max-width: 400px;">
-                            Une fois votre fichier traité, vous trouverez ici le rapport détaillé et les visualisations d'impact.
-                        </p>
+                        <div class="card-body p-0">
+                            <div class="table-responsive preview-scroll">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light text-uppercase small" id="previewThead"></thead>
+                                    <tbody id="previewTbody" class="small"></tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
-                    <div id="resultBox" class="d-none animate-fade-in">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-                            <h5 class="fw-bold m-0 text-success">
-                                <i class="bi bi-shield-check me-2"></i>Rapport de nettoyage
-                            </h5>
-                            <a id="downloadBtn" href="#" class="btn btn-success btn-sm shadow-sm px-4 rounded-pill">
-                                <i class="bi bi-download me-2"></i>Télécharger le résultat
-                            </a>
-                        </div>
-
-                        <div id="stats"></div>
-
-                        <hr class="my-4 opacity-25">
-
-                        <div class="row g-4 mt-2">
-                            <div class="col-md-6">
-                                <div class="p-2 border rounded-3 bg-white shadow-sm">
-                                    <h6 class="text-center text-muted small fw-bold mt-2">ÉVOLUTION DU VOLUME</h6>
-                                    <div style="height: 250px;">
-                                        <canvas id="statsChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="p-2 border rounded-3 bg-white shadow-sm">
-                                    <h6 class="text-center text-muted small fw-bold mt-2">DÉTAIL DES ACTIONS</h6>
-                                    <div style="height: 250px;">
-                                        <canvas id="detailsChart"></canvas>
-                                    </div>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
+                                <h6 class="text-center text-muted small fw-bold">VOLUME : AVANT vs APRÈS</h6>
+                                <div style="height: 250px;">
+                                    <canvas id="statsChart"></canvas>
                                 </div>
                             </div>
                         </div>
-                    </div> </div>
-            </div>
-
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
+                                <h6 class="text-center text-muted small fw-bold">RÉPARTITION DU NETTOYAGE</h6>
+                                <div style="height: 250px;">
+                                    <canvas id="detailsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div> </div>
         </div>
     </div>
 

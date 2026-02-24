@@ -1,118 +1,128 @@
-/**
- * 1. INITIALISATION DES ÉLÉMENTS
- */
+// --- GESTION DE L'INTERFACE D'UPLOAD ---
+const uploadIcon = document.getElementById('uploadIconClick');
 const fileInput = document.getElementById('dataFile');
-const iconClick = document.getElementById('uploadIconClick');
 const fileNameDisplay = document.getElementById('fileNameDisplay');
-const processForm = document.getElementById('processForm');
 
-const resultBox = document.getElementById('resultBox');
-const welcomeMessage = document.getElementById('welcomeMessage');
-const statsDiv = document.getElementById('stats');
-const downloadBtn = document.getElementById('downloadBtn');
-const btnSubmit = document.getElementById('btnSubmit');
+if (uploadIcon) {
+    uploadIcon.addEventListener('click', () => fileInput.click());
+}
 
-/**
- * 2. GESTION DE L'IMPORTATION
- */
-if (iconClick && fileInput) {
-    iconClick.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', function() {
-        if (this.files && this.files[0]) {
-            fileNameDisplay.innerText = this.files[0].name;
-            fileNameDisplay.classList.add('text-primary');
+if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            fileNameDisplay.innerText = e.target.files[0].name;
+            fileNameDisplay.classList.add('text-primary', 'fw-bold');
         }
     });
 }
 
-/**
- * 3. ENVOI ET TRAITEMENT DES DONNÉES
- */
-if (processForm) {
-    processForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
+// --- TRAITEMENT DU FORMULAIRE ---
+const processForm = document.getElementById('processForm');
+let statsChart = null;
+let detailsChart = null;
 
-        if (!fileInput.files[0]) {
-            alert("Veuillez sélectionner un fichier.");
+if (processForm) {
+    processForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const btnSubmit = document.getElementById('btnSubmit');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            alert("Veuillez sélectionner un fichier avant de continuer.");
             return;
         }
 
+        // Préparation des données à envoyer
         const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        formData.append('duplicates', document.getElementById('duplicates').checked);
+        formData.append('file', file);
         formData.append('missing', document.getElementById('missing').checked);
         formData.append('outliers', document.getElementById('outliers').checked);
+        formData.append('duplicates', document.getElementById('duplicates').checked);
         formData.append('normalize', document.getElementById('normalize').checked);
 
+        // Animation du bouton
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Traitement...';
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Traitement en cours...';
 
-        try {
-            const response = await fetch('/process', { method: 'POST', body: formData });
-            const result = await response.json();
-
-            if (response.ok) {
-                welcomeMessage.classList.add('d-none');
-                resultBox.classList.remove('d-none');
-
-                // Affichage des chiffres clés
-                statsDiv.innerHTML = `
-                    <div class="row text-center mb-3">
-                        <div class="col-6">
-                            <div class="p-3 border rounded bg-light">
-                                <h6 class="text-muted small text-uppercase">Initial</h6>
-                                <p class="h4 fw-bold mb-0">${result.rows_before}</p>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-3 border rounded bg-light">
-                                <h6 class="text-muted small text-uppercase">Nettoyé</h6>
-                                <p class="h4 fw-bold mb-0 text-success">${result.rows_after}</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                downloadBtn.href = result.download_url;
-
-                // APPEL DES GRAPHIQUES AVEC LES DÉTAILS
-                updateCharts(result.rows_before, result.rows_after, result.details);
-
-            } else {
-                alert("Erreur : " + result.error);
-            }
-        } catch (err) {
-            alert("Erreur de connexion.");
-        } finally {
+        fetch('/process', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
             btnSubmit.disabled = false;
-            btnSubmit.innerHTML = '<i class="bi bi-play-fill"></i> Lancer le traitement';
-        }
+            btnSubmit.innerHTML = '<i class="bi bi-gear-wide-connected me-2"></i>Analyser & Nettoyer';
+
+            if (data.error) {
+                alert("Erreur : " + data.error);
+                return;
+            }
+
+            // 1. Affichage du message de succès et lien de téléchargement
+            document.getElementById('welcomeMessage').classList.add('d-none');
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = `
+                <div class="alert alert-success d-flex justify-content-between align-items-center animate__animated animate__fadeIn shadow-sm">
+                    <span><i class="bi bi-check-circle-fill me-2"></i><strong>${data.rows_after}</strong> lignes conservées sur ${data.rows_before}.</span>
+                    <a href="${data.download_url}" class="btn btn-success btn-sm px-3 rounded-pill">
+                        <i class="bi bi-download me-1"></i>Télécharger le CSV
+                    </a>
+                </div>
+            `;
+
+            // 2. Remplissage du tableau de visualisation
+            updatePreviewTable(data);
+
+            // 3. Mise à jour des graphiques
+            updateCharts(data);
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = 'Réessayer';
+        });
     });
 }
 
-/**
- * 4. GESTION DES GRAPHIQUES (Comparaison + Détails)
- */
-let summaryChart = null;
-let detailsChart = null;
+// --- FONCTION DE MISE À JOUR DU TABLEAU ---
+function updatePreviewTable(data) {
+    const previewBox = document.getElementById('previewBox');
+    const thead = document.getElementById('previewThead');
+    const tbody = document.getElementById('previewTbody');
 
-function updateCharts(before, after, details) {
-    const ctxSummary = document.getElementById('statsChart');
-    const ctxDetails = document.getElementById('detailsChart');
+    if (previewBox && data.preview.length > 0) {
+        previewBox.classList.remove('d-none'); // On affiche la section
+        
+        // Construction des en-têtes
+        thead.innerHTML = '<tr>' + data.columns.map(col => `<th>${col}</th>`).join('') + '</tr>';
+        
+        // Construction des lignes
+        tbody.innerHTML = data.preview.map(row => {
+            return '<tr>' + data.columns.map(col => {
+                const val = row[col];
+                return `<td>${val !== null ? val : '<span class="text-muted small">null</span>'}</td>`;
+            }).join('') + '</tr>';
+        }).join('');
+    }
+}
 
-    if (summaryChart) summaryChart.destroy();
+// --- FONCTION DES GRAPHIQUES (CHART.JS) ---
+function updateCharts(data) {
+    // Détruire les anciens graphiques s'ils existent pour éviter les superpositions
+    if (statsChart) statsChart.destroy();
     if (detailsChart) detailsChart.destroy();
 
-    // Graphique 1 : Comparaison de volume (Barres)
-    summaryChart = new Chart(ctxSummary.getContext('2d'), {
+    // Graphique Evolution (Barres)
+    const ctxStats = document.getElementById('statsChart').getContext('2d');
+    statsChart = new Chart(ctxStats, {
         type: 'bar',
         data: {
-            labels: ['Avant', 'Après'],
+            labels: ['Données Brutes', 'Données Nettoyées'],
             datasets: [{
-                label: 'Lignes',
-                data: [before, after],
-                backgroundColor: ['#adb5bd', '#0d6efd'],
+                label: 'Nombre de lignes',
+                data: [data.rows_before, data.rows_after],
+                backgroundColor: ['#6c757d', '#0d6efd'],
                 borderRadius: 5
             }]
         },
@@ -123,46 +133,37 @@ function updateCharts(before, after, details) {
         }
     });
 
-    // Graphique 2 : Répartition des actions (Donut)
-    // On n'affiche que les actions qui ont eu un impact (> 0)
-    detailsChart = new Chart(ctxDetails.getContext('2d'), {
+    // Graphique Détails (Doughnut)
+    const ctxDetails = document.getElementById('detailsChart').getContext('2d');
+    detailsChart = new Chart(ctxDetails, {
         type: 'doughnut',
         data: {
             labels: ['Doublons', 'Manquants', 'Outliers'],
             datasets: [{
-                data: [details.doublons, details.manquants, details.aberrantes],
-                backgroundColor: ['#dc3545', '#ffc107', '#fd7e14'],
-                borderWidth: 2,
-                hoverOffset: 10
+                data: [data.details.doublons, data.details.manquants, data.details.aberrantes],
+                backgroundColor: ['#ffc107', '#dc3545', '#17a2b8'],
+                hoverOffset: 4
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom' },
-                title: { display: true, text: 'Impact du nettoyage', font: { size: 14 } }
-            },
-            cutout: '60%' // Crée l'effet "Donut"
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }
+            }
         }
     });
 }
 
-/**
- * 5. SUPPRESSION DANS L'HISTORIQUE
- */
-window.deleteEntry = async function(id) {
-    if (!confirm("Supprimer cet historique ?")) return;
-    try {
-        const response = await fetch(`/delete/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            const row = document.getElementById(`row-${id}`);
-            if (row) {
-                row.style.opacity = "0";
-                setTimeout(() => row.remove(), 400);
+// --- GESTION DE L'HISTORIQUE (Suppression) ---
+function deleteEntry(id) {
+    if (confirm("Voulez-vous vraiment supprimer cet enregistrement ?")) {
+        fetch(`/delete/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
             }
-        }
-    } catch (err) {
-        console.error("Erreur suppression:", err);
+        });
     }
-};
+}

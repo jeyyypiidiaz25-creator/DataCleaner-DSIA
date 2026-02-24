@@ -1,13 +1,14 @@
 from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import pandas as pd
+import numpy as np
 import os
 import mysql.connector
 from mysql.connector import Error
 import re
 
 app = Flask(__name__)
-# Clé secrète pour chiffrer les cookies de session
+# Clé secrète pour les sessions
 app.secret_key = 'datacleaner_secret_key_2024'
 
 # --- CONFIGURATION LOGIN ---
@@ -51,27 +52,32 @@ def load_user(user_id):
 def clean_data(df, options):
     details = {"doublons": 0, "manquants": 0, "aberrantes": 0, "normalisation": "Non"}
     
+    # 1. Doublons
     if options.get('duplicates'):
         avant = len(df)
         df = df.drop_duplicates()
         details["doublons"] = avant - len(df)
     
+    # 2. Valeurs manquantes (Imputation par la moyenne)
     if options.get('missing'):
-        num_cols = df.select_dtypes(include=['number']).columns
+        num_cols = df.select_dtypes(include=[np.number]).columns
         details["manquants"] = int(df[num_cols].isnull().sum().sum())
         df[num_cols] = df[num_cols].fillna(df[num_cols].mean())
     
+    # 3. Valeurs aberrantes (IQR)
     if options.get('outliers'):
         avant = len(df)
-        for col in df.select_dtypes(include=['number']).columns:
-            Q1, Q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+        for col in df.select_dtypes(include=[np.number]).columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
             IQR = Q3 - Q1
             df = df[(df[col] >= Q1 - 1.5 * IQR) & (df[col] <= Q3 + 1.5 * IQR)]
         details["aberrantes"] = avant - len(df)
 
+    # 4. Normalisation Min-Max
     if options.get('normalize'):
         details["normalisation"] = "Oui"
-        for col in df.select_dtypes(include=['number']).columns:
+        for col in df.select_dtypes(include=[np.number]).columns:
             if df[col].max() != df[col].min():
                 df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
             
@@ -88,21 +94,16 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor(dictionary=True)
-            # Note : En production, utilisez check_password_hash
             cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
             user_record = cursor.fetchone()
             conn.close()
-
             if user_record:
-                user_obj = User(user_record['id'], user_record['username'])
-                login_user(user_obj)
+                user = User(user_record['id'], user_record['username'])
+                login_user(user)
                 return redirect(url_for('index'))
-        
-        return "Identifiants invalides", 401
     return render_template('login.html')
 
 @app.route('/logout')
@@ -135,15 +136,23 @@ def process_data():
     except Exception as e:
         return jsonify({"error": f"Erreur de lecture : {str(e)}"}), 400
 
-    options = { k: request.form.get(k) == 'true' for k in ['missing', 'outliers', 'duplicates', 'normalize'] }
+    # Récupération des options envoyées par le JavaScript
+    options = {
+        'missing': request.form.get('missing') == 'true',
+        'outliers': request.form.get('outliers') == 'true',
+        'duplicates': request.form.get('duplicates') == 'true',
+        'normalize': request.form.get('normalize') == 'true'
+    }
+
     rows_before = len(df)
     df_cleaned, details = clean_data(df, options)
     rows_after = len(df_cleaned)
 
+    # Sauvegarde locale pour le téléchargement
     output_path = "cleaned_data.csv"
     df_cleaned.to_csv(output_path, index=False)
 
-    # Historique BDD
+    # Insertion dans l'historique MySQL
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
@@ -153,12 +162,24 @@ def process_data():
         conn.commit()
         conn.close()
 
+    # --- PRÉPARATION DE L'APERÇU POUR LA VISUALISATION ---
+    # On prend les 10 premières lignes et on remplace NaN par None pour le JSON
+    preview_data = df_cleaned.head(10).replace({np.nan: None}).to_dict(orient='records')
+    columns = df_cleaned.columns.tolist()
+
     return jsonify({
         "rows_before": rows_before, 
         "rows_after": rows_after, 
         "details": details, 
+        "columns": columns,
+        "preview": preview_data,
         "download_url": "/download"
     })
+
+@app.route('/download')
+@login_required
+def download():
+    return send_file("cleaned_data.csv", as_attachment=True, download_name="donnees_nettoyees.csv")
 
 @app.route('/historique')
 @login_required
@@ -182,11 +203,6 @@ def delete_item(id):
         conn.close()
         return jsonify({"success": True})
     return jsonify({"success": False}), 500
-
-@app.route('/download')
-@login_required
-def download():
-    return send_file("cleaned_data.csv", as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=True)
