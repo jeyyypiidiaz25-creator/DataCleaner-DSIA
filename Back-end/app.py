@@ -1,32 +1,35 @@
 from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import pandas as pd
-import numpy as np  # Indispensable pour la visualisation
+import numpy as np
 import os
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2.extras import RealDictCursor # Indispensable pour garder la structure de dictionnaire
 import re
 
 app = Flask(__name__)
-app.secret_key = 'datacleaner_secret_key_2024'
+app.secret_key = 'datacleaner_secret_key_2026'
 
 # --- CONFIGURATION LOGIN ---
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# --- CONFIGURATION DE LA BASE DE DONNÉES ---
+# --- CONFIGURATION DE LA BASE DE DONNÉES POSTGRESQL ---
 def get_db_connection():
     try:
-        connection = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="traitements"
+        # En local, utilise tes identifiants pgAdmin
+        # Lors du déploiement sur Render, on utilisera une variable d'environnement
+        connection = psycopg2.connect(
+            host=os.getenv("DB_HOST", "localhost"),
+            database=os.getenv("DB_NAME", "traitements"),
+            user=os.getenv("DB_USER", "postgres"),
+            password=os.getenv("DB_PASS", "0000"), # <--- CHANGE LE MOT DE PASSE ICI
+            port=os.getenv("DB_PORT", "5432")
         )
         return connection
-    except Error as e:
-        print(f"Erreur de connexion MySQL : {e}")
+    except Exception as e:
+        print(f"Erreur de connexion PostgreSQL : {e}")
         return None
 
 # --- CLASSE UTILISATEUR POUR SESSION ---
@@ -39,7 +42,7 @@ class User(UserMixin):
 def load_user(user_id):
     conn = get_db_connection()
     if conn:
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
         user_data = cursor.fetchone()
         conn.close()
@@ -51,19 +54,16 @@ def load_user(user_id):
 def clean_data(df, options):
     details = {"doublons": 0, "manquants": 0, "aberrantes": 0, "normalisation": "Non"}
     
-    # 1. Doublons
     if options.get('duplicates'):
         avant = len(df)
         df = df.drop_duplicates()
         details["doublons"] = avant - len(df)
     
-    # 2. Valeurs manquantes (Imputation par la moyenne pour le numérique)
     if options.get('missing'):
         num_cols = df.select_dtypes(include=[np.number]).columns
         details["manquants"] = int(df[num_cols].isnull().sum().sum())
         df[num_cols] = df[num_cols].fillna(df[num_cols].mean())
     
-    # 3. Valeurs aberrantes (Méthode IQR)
     if options.get('outliers'):
         avant = len(df)
         for col in df.select_dtypes(include=[np.number]).columns:
@@ -73,7 +73,6 @@ def clean_data(df, options):
             df = df[(df[col] >= Q1 - 1.5 * IQR) & (df[col] <= Q3 + 1.5 * IQR)]
         details["aberrantes"] = avant - len(df)
 
-    # 4. Normalisation Min-Max (0 à 1)
     if options.get('normalize'):
         details["normalisation"] = "Oui"
         for col in df.select_dtypes(include=[np.number]).columns:
@@ -95,7 +94,7 @@ def login():
         password = request.form.get('password')
         conn = get_db_connection()
         if conn:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
             user_record = cursor.fetchone()
             conn.close()
@@ -130,12 +129,10 @@ def process_data():
         if ext == 'csv': df = pd.read_csv(file)
         elif ext in ['xls', 'xlsx']: df = pd.read_excel(file)
         elif ext == 'json': df = pd.read_json(file)
-        elif ext == 'xml': df = pd.read_xml(file)
         else: return jsonify({"error": "Format non supporté"}), 400
     except Exception as e:
         return jsonify({"error": f"Erreur de lecture : {str(e)}"}), 400
 
-    # Récupération des options envoyées par le JavaScript
     options = {
         'missing': request.form.get('missing') == 'true',
         'outliers': request.form.get('outliers') == 'true',
@@ -147,11 +144,10 @@ def process_data():
     df_cleaned, details = clean_data(df, options)
     rows_after = len(df_cleaned)
 
-    # Sauvegarde locale du fichier nettoyé pour permettre le téléchargement
     output_path = "cleaned_data.csv"
     df_cleaned.to_csv(output_path, index=False)
 
-    # --- Sauvegarde dans l'Historique BDD ---
+    # Sauvegarde Historique BDD
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
@@ -161,8 +157,6 @@ def process_data():
         conn.commit()
         conn.close()
 
-    # --- PRÉPARATION DE L'APERÇU POUR LA VISUALISATION ---
-    # On prend les 10 premières lignes et on remplace NaN par None pour la compatibilité JSON
     preview_data = df_cleaned.head(10).replace({np.nan: None}).to_dict(orient='records')
     columns = df_cleaned.columns.tolist()
 
@@ -185,7 +179,7 @@ def download():
 def historique():
     conn = get_db_connection()
     if not conn: return render_template('historique.html', historique=[])
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute("SELECT * FROM traitements ORDER BY date_traitement DESC")
     data = cursor.fetchall()
     conn.close()
