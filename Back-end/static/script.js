@@ -1,22 +1,22 @@
 /**
- * DataCleaner API - Logique JavaScript Finale
+ * DataCleaner API - Logique de traitement et visualisation
+ * Projet DSIA 2026
  */
 
-// --- ELEMENTS UI ---
+// --- ÉLÉMENTS DE L'INTERFACE ---
 const formatSelector = document.getElementById('formatSelector');
 const fileInput = document.getElementById('dataFile');
 const mainFileNameDisplay = document.getElementById('mainFileNameDisplay');
-const sidebarFileNameDisplay = document.getElementById('fileNameDisplay');
 const processForm = document.getElementById('processForm');
 const btnSubmit = document.getElementById('btnSubmit');
 
 let statsChart = null;
 let detailsChart = null;
 
-// 1. GESTION DU FORMAT ET DE LA SÉLECTION DE FICHIER
+// 1. GESTION DYNAMIQUE DU FORMAT ET DU FICHIER
 if (formatSelector) {
     formatSelector.addEventListener('change', (e) => {
-        // Met à jour l'attribut 'accept' pour filtrer dans l'explorateur de fichiers
+        // Met à jour les extensions acceptées dans l'explorateur de fichiers
         fileInput.accept = e.target.value;
     });
 }
@@ -25,25 +25,27 @@ if (fileInput) {
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             const fileName = e.target.files[0].name;
-            // Affiche le nom du fichier dans la zone centrale et la sidebar
-            if (mainFileNameDisplay) mainFileNameDisplay.innerText = "Fichier prêt : " + fileName;
-            if (sidebarFileNameDisplay) sidebarFileNameDisplay.innerText = fileName;
+            // Mise à jour de l'affichage central
+            if (mainFileNameDisplay) {
+                mainFileNameDisplay.innerHTML = `<i class="bi bi-file-check-fill me-2"></i>Fichier chargé : ${fileName}`;
+                mainFileNameDisplay.classList.add('animate__animated', 'animate__bounceIn');
+            }
         }
     });
 }
 
-// 2. ENVOI ET TRAITEMENT (AJAX)
+// 2. ENVOI DES DONNÉES (AJAX / FETCH)
 if (processForm) {
     processForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
         const file = fileInput.files[0];
         if (!file) {
-            alert("Veuillez d'abord importer un fichier dans la zone centrale.");
+            alert("Erreur : Aucun fichier détecté. Veuillez d'abord choisir un fichier.");
             return;
         }
 
-        // Préparation des données
+        // Préparation du paquet de données
         const formData = new FormData();
         formData.append('file', file);
         formData.append('missing', document.getElementById('missing').checked);
@@ -51,7 +53,7 @@ if (processForm) {
         formData.append('duplicates', document.getElementById('duplicates').checked);
         formData.append('normalize', document.getElementById('normalize').checked);
 
-        // UI : État de chargement
+        // État de chargement du bouton
         btnSubmit.disabled = true;
         btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Nettoyage en cours...';
 
@@ -62,101 +64,114 @@ if (processForm) {
         .then(response => response.json())
         .then(data => {
             btnSubmit.disabled = false;
-            btnSubmit.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>Lancer le traitement';
+            btnSubmit.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>Lancer le nettoyage';
 
             if (data.error) {
-                alert("Erreur : " + data.error);
+                alert("Erreur de traitement : " + data.error);
                 return;
             }
 
-            // Basculer l'affichage (Masquer import, montrer résultats)
+            // A. BASCULEMENT DE L'INTERFACE
             document.getElementById('importZone').classList.add('d-none');
-            document.getElementById('resultBox').classList.remove('d-none');
+            const resultBox = document.getElementById('resultBox');
+            resultBox.classList.remove('d-none');
+            resultBox.classList.add('animate__animated', 'animate__fadeInUp');
 
-            // Mise à jour de l'alerte de statistiques
+            // B. AFFICHAGE DES STATISTIQUES ET TÉLÉCHARGEMENT
             const statsDiv = document.getElementById('stats');
             statsDiv.innerHTML = `
-                <div class="alert alert-success d-flex justify-content-between align-items-center shadow-sm animate__animated animate__fadeIn">
-                    <span>
+                <div class="alert alert-success d-flex justify-content-between align-items-center shadow-sm">
+                    <div>
                         <i class="bi bi-check-circle-fill me-2"></i>
-                        <strong>${data.rows_after}</strong> lignes traitées avec succès.
-                    </span>
-                    <a href="${data.download_url}" class="btn btn-success btn-sm px-4 rounded-pill">
-                        <i class="bi bi-download me-1"></i>Télécharger CSV
+                        Succès : <strong>${data.rows_after}</strong> lignes conservées sur <strong>${data.rows_before}</strong>.
+                    </div>
+                    <a href="${data.download_url}" class="btn btn-success btn-sm px-4 rounded-pill shadow-sm fw-bold">
+                        <i class="bi bi-download me-1"></i>Télécharger le CSV
                     </a>
                 </div>
             `;
 
-            // Remplissage du tableau d'aperçu
-            updatePreviewTable(data);
+            // C. REMPLISSAGE DU TABLEAU D'APERÇU
+            renderPreviewTable(data);
 
-            // Mise à jour des graphiques
-            updateCharts(data);
+            // D. GÉNÉRATION DES GRAPHIQUES
+            renderCharts(data);
         })
         .catch(error => {
-            console.error('Erreur:', error);
+            console.error('Erreur Fetch:', error);
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = 'Réessayer';
+            alert("Une erreur est survenue lors de la connexion au serveur.");
         });
     });
 }
 
-// 3. FONCTION DE REMPLISSAGE DU TABLEAU
-function updatePreviewTable(data) {
+// 3. FONCTION : RENDU DU TABLEAU D'APERÇU
+function renderPreviewTable(data) {
     const thead = document.getElementById('previewThead');
     const tbody = document.getElementById('previewTbody');
 
-    // Génération des en-têtes
-    thead.innerHTML = '<tr>' + data.columns.map(c => `<th>${c}</th>`).join('') + '</tr>';
+    // En-têtes
+    thead.innerHTML = '<tr>' + data.columns.map(c => `<th class="small text-muted text-uppercase">${c}</th>`).join('') + '</tr>';
     
-    // Génération des lignes (limité aux 10 premières transmises par le serveur)
+    // Contenu (10 premières lignes transmises par Flask)
     tbody.innerHTML = data.preview.map(row => {
         return '<tr>' + data.columns.map(c => {
             const val = row[c];
-            return `<td>${val !== null ? val : '<span class="text-muted small">null</span>'}</td>`;
+            return `<td>${val !== null ? val : '<em class="text-danger small">null</em>'}</td>`;
         }).join('') + '</tr>';
     }).join('');
 }
 
-// 4. FONCTION DES GRAPHIQUES (CHART.JS)
-function updateCharts(data) {
+// 4. FONCTION : RENDU DES GRAPHIQUES (CHART.JS)
+function renderCharts(data) {
+    // Destruction des instances précédentes pour éviter les bugs de superposition
     if (statsChart) statsChart.destroy();
     if (detailsChart) detailsChart.destroy();
 
-    // Graphique Barres (Volume)
+    // Graphique : Volume des données
     const ctxBar = document.getElementById('statsChart').getContext('2d');
     statsChart = new Chart(ctxBar, {
         type: 'bar',
         data: {
-            labels: ['Original', 'Nettoyé'],
+            labels: ['Brutes', 'Nettoyées'],
             datasets: [{
-                label: 'Nombre de lignes',
+                label: 'Lignes',
                 data: [data.rows_before, data.rows_after],
-                backgroundColor: ['#6c757d', '#0d6efd'],
+                backgroundColor: ['#e9ecef', '#0d6efd'],
                 borderRadius: 5
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
     });
 
-    // Graphique Doughnut (Détails)
-    const ctxDoughnut = document.getElementById('detailsChart').getContext('2d');
-    detailsChart = new Chart(ctxDoughnut, {
+    // Graphique : Nature des corrections
+    const ctxPie = document.getElementById('detailsChart').getContext('2d');
+    detailsChart = new Chart(ctxPie, {
         type: 'doughnut',
         data: {
             labels: ['Doublons', 'V. Manquantes', 'Outliers'],
             datasets: [{
                 data: [data.details.doublons, data.details.manquants, data.details.aberrantes],
-                backgroundColor: ['#ffc107', '#dc3545', '#17a2b8']
+                backgroundColor: ['#ffc107', '#dc3545', '#17a2b8'],
+                borderWidth: 0
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
     });
 }
 
-// 5. GESTION DE LA SUPPRESSION DANS L'HISTORIQUE
+// 5. FONCTION : SUPPRESSION HISTORIQUE
 function deleteEntry(id) {
-    if (confirm("Supprimer cette analyse de l'historique ?")) {
+    if (confirm("Confirmer la suppression de cet historique ?")) {
         fetch(`/delete/${id}`, { method: 'DELETE' })
         .then(res => res.json())
         .then(data => {
