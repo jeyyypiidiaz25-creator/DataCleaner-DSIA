@@ -2,62 +2,35 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataCleaner - Dashboard Pro</title>
+    <title>DataCleaner - Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        .navbar-custom { background-color: #0d6efd; color: white; padding: 15px; margin-bottom: 30px; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); height: 100%; }
-        .config-title { color: #0d6efd; font-weight: 700; margin-bottom: 20px; }
-        .stat-number { font-size: 2.5rem; font-weight: 800; margin-bottom: 0; }
-        .stat-label { color: #888; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
-        .chart-container { position: relative; height: 300px; width: 100%; margin: 20px 0; }
-        .table-container { max-height: 350px; overflow-y: auto; border: 1px solid #eee; border-radius: 10px; font-size: 0.85rem; }
-        thead { background: #f8f9fa; position: sticky; top: 0; }
-        .form-switch .form-check-input { width: 3.5em; height: 1.5em; cursor: pointer; }
+        body { background-color: #f8f9fa; }
+        .navbar-custom { background-color: #0d6efd; color: white; padding: 10px; margin-bottom: 25px; }
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); height: 100%; }
+        .stat-number { font-size: 2.2rem; font-weight: 800; margin-bottom: 0; }
+        .stat-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
+        .table-container { max-height: 300px; overflow-y: auto; font-size: 0.85rem; }
     </style>
 </head>
 <body>
-
-    <nav class="navbar-custom shadow-sm">
-        <div class="container d-flex justify-content-between align-items-center">
-            <span class="navbar-brand text-white fw-bold">⚙️ DataCleaner API</span>
-            <div class="text-white small">
-                Connecté : <span class="badge bg-light text-primary">{{ session.get('user') }}</span>
-                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light ms-3">Déconnexion</a>
-            </div>
-        </div>
-    </nav>
+    <nav class="navbar-custom"><div class="container"><strong>⚙️ DataCleaner API</strong></div></nav>
 
     <div class="container">
         <div class="row g-4">
-            
             <div class="col-md-4">
                 <div class="card p-4">
-                    <h5 class="config-title">🛠️ Configuration</h5>
+                    <h5 class="text-primary fw-bold mb-4">Configuration</h5>
                     <form action="/process" method="post" enctype="multipart/form-data">
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">1. Importer un fichier</label>
-                            <input type="file" name="file" class="form-control" accept=".csv, .xlsx" required>
+                        <label class="small fw-bold mb-2">1. Importer un fichier</label>
+                        <input type="file" name="file" class="form-control mb-4" required>
+                        
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" checked>
+                            <label class="form-check-label">Supprimer doublons</label>
                         </div>
-
-                        <h6 class="fw-bold text-muted small mb-3">OPTIONS DE NETTOYAGE</h6>
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="checkDup" checked>
-                            <label class="form-check-label" for="checkDup">Supprimer les doublons</label>
-                        </div>
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="checkMiss" checked>
-                            <label class="form-check-label" for="checkMiss">Combler les manquants</label>
-                        </div>
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="checkOut">
-                            <label class="form-check-label" for="checkOut">Éliminer les outliers</label>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100 mt-4 py-2 fw-bold shadow-sm">▶️ ANALYSER LES DONNÉES</button>
+                        <button type="submit" class="btn btn-primary w-100 mt-4 fw-bold">Lancer l'analyse</button>
                     </form>
                 </div>
             </div>
@@ -68,13 +41,7 @@
                         <div id="data-store" 
                              data-initial="{{ initial_rows }}" 
                              data-cleaned="{{ cleaned_rows }}" 
-                             style="display: none;">
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h5 class="m-0 text-primary fw-bold">📊 Rapport d'analyse</h5>
-                            <span class="badge bg-info text-dark">{{ filename }}</span>
-                        </div>
+                             style="display:none;"></div>
 
                         <div class="row text-center mb-4">
                             <div class="col-6">
@@ -83,41 +50,26 @@
                             </div>
                             <div class="col-6 border-start">
                                 <p class="stat-label">Lignes Nettoyées</p>
-                                <p class="stat-number text-success">{{ cleaned_rows }}</p>
+                                <p class="stat-number text-primary">{{ cleaned_rows }}</p>
                             </div>
                         </div>
 
-                        <div class="chart-container">
-                            <canvas id="cleaningChart"></canvas>
-                        </div>
+                        <div style="height: 250px;"><canvas id="cleaningChart"></canvas></div>
 
-                        <h6 class="mt-4 mb-3 fw-bold">Aperçu du fichier traité</h6>
-                        <div class="table-container">
-                            {{ preview|safe }}
-                        </div>
-
-                        <div class="mt-4 text-center">
-                            <button class="btn btn-success px-5 fw-bold shadow-sm">📥 TÉLÉCHARGER LE RÉSULTAT (.xlsx)</button>
-                        </div>
-
+                        <h6 class="mt-4 fw-bold">Aperçu des données</h6>
+                        <div class="table-container mt-2">{{ preview|safe }}</div>
                     {% else %}
-                        <div class="text-center py-5 my-5">
-                            <img src="https://img.icons8.com/color/144/upload-to-cloud--v1.png" style="width: 120px; opacity: 0.6;">
-                            <h2 class="mt-4 fw-bold text-muted">Prêt pour l'analyse</h2>
-                            <p class="text-secondary">Chargez un fichier sur la gauche pour voir les statistiques ici.</p>
+                        <div class="text-center py-5">
+                            <img src="https://img.icons8.com/color/96/checked-checkbox.png" class="mb-3 opacity-50">
+                            <h3>Prêt pour l'analyse</h3>
+                            <p class="text-muted">L'aperçu apparaîtra après l'importation.</p>
                         </div>
                     {% endif %}
                 </div>
             </div>
-
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-
-    <footer class="text-center mt-5 mb-4 text-muted">
-        <small>Projet DataCleaner API - DSIA 2026</small>
-    </footer>
-
 </body>
 </html>
