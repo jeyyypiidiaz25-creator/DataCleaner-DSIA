@@ -3,83 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataCleaner - Dashboard Pro</title>
+    <title>DataCleaner API - Panneau de Configuration</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        .navbar { background-color: #2c3e50; color: white; margin-bottom: 30px; }
-        .card { border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .btn-primary { background-color: #3498db; border: none; }
-        .btn-success { background-color: #27ae60; border: none; }
-        .stats-box { text-align: center; padding: 15px; background: #ebf5fb; border-radius: 10px; margin-bottom: 20px; }
-        .table-container { max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 5px; }
-        table { font-size: 0.9rem; }
-        thead { background-color: #2c3e50; color: white; position: sticky; top: 0; }
+        
+        /* Barre de navigation bleue personnalisée */
+        .navbar-custom { background-color: #0d6efd; color: white; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .navbar-custom .navbar-brand { font-size: 1.25rem; }
+        .navbar-custom .nav-link { color: rgba(255,255,255,0.85); font-weight: 500; margin-left: 15px; }
+        .navbar-custom .nav-link:hover { color: white; }
+        .navbar-custom .user-info { color: rgba(255,255,255,0.7); font-size: 0.9rem; }
+
+        /* Styles généraux pour les cartes */
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; transition: transform 0.2s; }
+        
+        /* Panneau de configuration (colonne de gauche) */
+        .config-card { background: white; padding: 25px; }
+        .config-title { color: #0d6efd; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 25px; }
+        .sub-title { font-weight: 600; font-size: 0.9rem; margin-top: 15px; margin-bottom: 10px; }
+        
+        /* Personnalisation des commutateurs d'options (switches) */
+        .form-switch .form-check-input { width: 4em; height: 1.75em; border-radius: 2em; cursor: pointer; }
+        .form-switch .form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
+        .form-check-label { font-size: 0.9rem; color: #333; cursor: pointer; }
+        
+        /* Zone d'aperçu (colonne de droite) */
+        .preview-card { background: white; padding: 25px; min-height: 100%; }
+        .results-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .table-container { max-height: 500px; overflow-y: auto; overflow-x: auto; border: 1px solid #dee2e6; border-radius: 5px; }
+        table { font-size: 0.85rem; }
+        thead { background-color: #f8f9fa; color: #2c3e50; font-weight: 600; position: sticky; top: 0; }
+
+        /* Icône de téléchargement pour l'état "Prêt" */
+        .ready-icon { display: block; margin: auto; max-width: 150px; opacity: 0.8; margin-top: 50px; }
+        
+        /* Styles Bootstrap spécifiques pour le tableau de données */
+        .table-striped > tbody > tr:nth-of-type(odd) > * { --bs-table-accent-bg: #f9f9f9; }
+        .table-hover > tbody > tr:hover > * { --bs-table-accent-bg: #f1f1f1; }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg">
+    <nav class="navbar navbar-expand-lg navbar-custom">
         <div class="container">
-            <span class="navbar-brand text-white">DataCleaner <strong>API</strong></span>
-            <div class="ms-auto">
-                <span class="me-3">👤 {{ session.get('user') }}</span>
-                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Déconnexion</a>
+            <span class="navbar-brand text-white">⚙️ DataCleaner <strong>API</strong></span>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('dashboard') }}">Accueil</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Historique</a>
+                    </li>
+                    <li class="nav-item d-flex align-items-center">
+                        <span class="user-info me-3">Utilisateur : <strong>{{ session.get('user', 'Utilisateur') }}</strong></span>
+                        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Déconnexion</a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
 
     <div class="container">
-        <div class="card p-4">
-            <h4 class="mb-3">1. Importer vos données</h4>
-            <form action="/process" method="post" enctype="multipart/form-data" class="row g-3">
-                <div class="col-md-9">
-                    <input type="file" name="file" class="form-control" accept=".csv, .xlsx, .json, .xml" required>
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-primary w-100">Lancer l'Analyse</button>
-                </div>
-            </form>
-        </div>
-
-        {% if preview %}
         <div class="row">
+            
             <div class="col-md-4">
-                <div class="card p-3">
-                    <h5>Statistiques du fichier</h5>
-                    <div class="stats-box">
-                        <h2 class="text-primary">{{ rows }}</h2>
-                        <p class="mb-0">Lignes détectées</p>
+                <form action="/process" method="post" enctype="multipart/form-data">
+                    <div class="card config-card">
+                        <h4 class="config-title">🛠️ Configuration</h4>
+                        
+                        <h6 class="sub-title">1. Importer un fichier</h6>
+                        <div class="mb-3">
+                            <input type="file" name="file" class="form-control" accept=".csv, .xlsx, .json, .xml" required>
+                        </div>
+                        <p class="text-muted"><small>ℹ️ CSV, Excel, JSON et XML supportés.</small></p>
+                        
+                        <h6 class="sub-title text-uppercase mt-4">OPTIONS</h6>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="optDoublons" checked>
+                            <label class="form-check-label" for="optDoublons">Supprimer les doublons</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="optManquants" checked>
+                            <label class="form-check-label" for="optManquants">Combler les manquants</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="optOutliers">
+                            <label class="form-check-label" for="optOutliers">Éliminer les outliers</label>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="optNormalisation">
+                            <label class="form-check-label" for="optNormalisation">Normalisation (0-1)</label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100 mt-4 py-2">▶️ Lancer le traitement</button>
                     </div>
-                    <div class="stats-box">
-                        <h2 class="text-success">{{ cols }}</h2>
-                        <p class="mb-0">Colonnes détectées</p>
-                    </div>
-                    <p><strong>Nom :</strong> {{ filename }}</p>
-                </div>
+                </form>
             </div>
 
             <div class="col-md-8">
-                <div class="card p-3">
-                    <h5>Aperçu des 10 premières lignes</h5>
-                    <div class="table-container">
-                        {{ preview|safe }}
-                    </div>
+                <div class="card preview-card">
+                    
+                    {% if preview %}
+                        <div class="results-header">
+                            <h5 class="mb-0">📊 Aperçu des 10 premières lignes</h5>
+                            <span class="badge bg-primary ms-3">Nom : <strong>{{ filename }}</strong></span>
+                            <span class="badge bg-secondary">Taille : <strong>{{ rows }} x {{ cols }}</strong></span>
+                        </div>
+                        
+                        <div class="table-container mt-3">
+                            {{ preview|safe }}
+                        </div>
+                        
+                        <div class="mt-4 text-center">
+                            <button class="btn btn-success px-5">💾 Télécharger (.xlsx)</button>
+                        </div>
+
+                    {% else %}
+                        <div class="text-center ready-section">
+                            <img src="https://img.icons8.com/color/144/download--v1.png" alt="download icon" class="ready-icon">
+                            <h2 class="mt-4 ready-title">Prêt pour l'analyse</h2>
+                            <p class="text-muted ready-text">L'aperçu de vos données apparaîtra ici. Commencez par configurer le nettoyage sur le panneau de gauche.</p>
+                        </div>
+                    {% endif %}
+                    
                 </div>
             </div>
-        </div>
 
-        <div class="card p-4 text-center">
-            <h4 class="mb-4 text-secondary">2. Options de Nettoyage Rapide</h4>
-            <div class="d-flex justify-content-center gap-3">
-                <button class="btn btn-outline-secondary">🗑️ Supprimer Doublons</button>
-                <button class="btn btn-outline-secondary">🧹 Remplir les Vides</button>
-                <button class="btn btn-outline-secondary">📊 Normaliser Textes</button>
-                <button class="btn btn-success px-5">💾 Télécharger en EXCEL (.xlsx)</button>
-            </div>
         </div>
-        {% endif %}
-
     </div>
 
     <footer class="text-center mt-5 mb-4 text-muted">
