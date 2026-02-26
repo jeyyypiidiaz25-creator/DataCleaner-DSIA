@@ -96,6 +96,7 @@ def process_file():
 # --- LANCEMENT ---
 
 if __name__ == '__main__':
-    # Configuration vitale pour Render
-    port = int(os.environ.get("PORT", 10000))
+    # Render utilise la variable d'environnement PORT. 
+    # Si elle n'existe pas (local), on utilise 5000.
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
