@@ -3,8 +3,6 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 import pandas as pd
 import numpy as np  # Indispensable pour la visualisation
 import os
-import mysql.connector
-from mysql.connector import Error
 import re
 
 app = Flask(__name__)
