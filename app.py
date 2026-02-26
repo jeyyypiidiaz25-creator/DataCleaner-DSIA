@@ -41,7 +41,7 @@ def logout():
 def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
-    return render_template('index.html')
+    return render_template('landing.html')
 
 # --- MOTEUR DE NETTOYAGE MULTI-FORMATS ---
 
